@@ -266,7 +266,6 @@ def user_response_data():
 def login_request_data():
     return {"email": "john.doe@example.com", "password": "SecurePassword123!"}
 
-
 @pytest.fixture(scope="function")
 async def user_token(verified_user):
     return create_access_token(data={"sub": verified_user.email, "role": "AUTHENTICATED"})
