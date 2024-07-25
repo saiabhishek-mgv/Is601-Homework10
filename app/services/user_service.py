@@ -1,6 +1,7 @@
 from builtins import Exception, bool, classmethod, int, str
 from datetime import datetime, timezone
 import secrets
+from sqlite3 import IntegrityError
 from typing import Optional, Dict, List
 from pydantic import ValidationError
 from sqlalchemy import func, null, update, select
@@ -57,22 +58,40 @@ class UserService:
             if existing_user:
                 logger.error("User with given email already exists.")
                 return None
+
+            # Ensure the nickname does not already exist
+            existing_nickname = await cls.get_by_nickname(session, validated_data['nickname'])
+            if existing_nickname:
+                logger.error("User with given nickname already exists.")
+                return None
+
+            # Debugging: print the nickname before hashing the password
+            print("Nickname before hashing password:", validated_data['nickname'])
+
             validated_data['hashed_password'] = hash_password(validated_data.pop('password'))
             new_user = User(**validated_data)
             new_user.verification_token = generate_verification_token()
-            new_nickname = generate_nickname()
-            while await cls.get_by_nickname(session, new_nickname):
-                new_nickname = generate_nickname()
-            new_user.nickname = new_nickname
+
+            # Debugging: print the nickname after hashing the password
+            print("Nickname after hashing password:", validated_data['nickname'])
+
             session.add(new_user)
             await session.commit()
+            await session.refresh(new_user)
             await email_service.send_verification_email(new_user)
+
+            # Debugging: print the nickname after creating the user
+            print("Nickname after creating user:", new_user.nickname)
             
             return new_user
         except ValidationError as e:
             logger.error(f"Validation error during user creation: {e}")
             return None
-
+        except IntegrityError as e:
+            await session.rollback()
+            logger.error(f"Database error during user creation: {e}")
+            return None
+        
     @classmethod
     async def update(cls, session: AsyncSession, user_id: UUID, update_data: Dict[str, str]) -> Optional[User]:
         try:
@@ -119,23 +138,35 @@ class UserService:
     @classmethod
     async def login_user(cls, session: AsyncSession, email: str, password: str) -> Optional[User]:
         user = await cls.get_by_email(session, email)
-        if user:
-            if user.email_verified is False:
-                return None
-            if user.is_locked:
-                return None
-            if verify_password(password, user.hashed_password):
-                user.failed_login_attempts = 0
-                user.last_login_at = datetime.now(timezone.utc)
-                session.add(user)
-                await session.commit()
-                return user
-            else:
-                user.failed_login_attempts += 1
-                if user.failed_login_attempts >= settings.max_login_attempts:
-                    user.is_locked = True
-                session.add(user)
-                await session.commit()
+        
+        if not user:
+            logger.debug("User not found for email: %s", email)
+            return None
+        
+        if not user.email_verified:
+            logger.debug("Email not verified for user: %s", email)
+            return None
+        
+        if user.is_locked:
+            logger.debug("User account is locked: %s", email)
+            return None
+        
+        if verify_password(password, user.hashed_password):
+            user.failed_login_attempts = 0
+            user.last_login_at = datetime.now(timezone.utc)
+            session.add(user)
+            await session.commit()
+            logger.debug("User logged in successfully: %s", email)
+            return user
+        else:
+            user.failed_login_attempts += 1
+            if user.failed_login_attempts >= settings.max_login_attempts:
+                user.is_locked = True
+                logger.debug("User account locked due to failed attempts: %s", email)
+            session.add(user)
+            await session.commit()
+            logger.debug("Invalid password for user: %s", email)
+        
         return None
 
     @classmethod
