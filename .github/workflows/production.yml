@@ -45,6 +45,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           
+      - name: Print Environment Variables
+        run: |
+          echo "SMTP_SERVER=${{ secrets.SMTP_SERVER }}"
+          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}"
+          echo "DATABASE_URL=${{ env.DATABASE_URL }}"
+      
       - name: Run tests with Pytest
         env:
           DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/myappdb  # Configure the DATABASE_URL environment variable for tests
