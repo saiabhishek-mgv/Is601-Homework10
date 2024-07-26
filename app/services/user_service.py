@@ -53,43 +53,25 @@ class UserService:
     @classmethod
     async def create(cls, session: AsyncSession, user_data: Dict[str, str], email_service: EmailService) -> Optional[User]:
         try:
-            validated_data = UserCreate(**user_data).model_dump()
+            validated_data = UserCreate(**user_data).dict()
             existing_user = await cls.get_by_email(session, validated_data['email'])
             if existing_user:
                 logger.error("User with given email already exists.")
                 return None
-
-            # Ensure the nickname does not already exist
-            existing_nickname = await cls.get_by_nickname(session, validated_data['nickname'])
-            if existing_nickname:
-                logger.error("User with given nickname already exists.")
-                return None
-
-            # Debugging: print the nickname before hashing the password
-            print("Nickname before hashing password:", validated_data['nickname'])
-
             validated_data['hashed_password'] = hash_password(validated_data.pop('password'))
+            if 'nickname' not in validated_data or not validated_data['nickname']:
+                new_nickname = generate_nickname()
+                while await cls.get_by_nickname(session, new_nickname):
+                    new_nickname = generate_nickname()
+                validated_data['nickname'] = new_nickname
             new_user = User(**validated_data)
             new_user.verification_token = generate_verification_token()
-
-            # Debugging: print the nickname after hashing the password
-            print("Nickname after hashing password:", validated_data['nickname'])
-
             session.add(new_user)
             await session.commit()
-            await session.refresh(new_user)
             await email_service.send_verification_email(new_user)
-
-            # Debugging: print the nickname after creating the user
-            print("Nickname after creating user:", new_user.nickname)
-            
             return new_user
         except ValidationError as e:
             logger.error(f"Validation error during user creation: {e}")
-            return None
-        except IntegrityError as e:
-            await session.rollback()
-            logger.error(f"Database error during user creation: {e}")
             return None
         
     @classmethod
