@@ -47,8 +47,8 @@ jobs:
           
       - name: Run tests with Pytest
         env:
-          smtp_server: postgresql+asyncpg://user:password@localhost:5432/myappdb  # Configure the DATABASE_URL environment variable for tests
-          SMTP_SERVER: sandbox.smtp.mailtrap.io
+          DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/myappdb  # Configure the DATABASE_URL environment variable for tests
+          smtp_server: sandbox.smtp.mailtrap.io
           smtp_port: 2525
           smtp_username: ${{ secrets.SMTP_USERNAME }}
           smtp_password: ${{ secrets.SMTP_PASSWORD }}
