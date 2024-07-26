@@ -17,6 +17,7 @@ Developed comprehensive test cases using pytest, focusing on unit testing, integ
 Investigated and resolved issues related to password complexity and user nickname mismatch.
 - [Issue #1: Password Complexity](https://github.com/saiabhishek-mgv/Is601-Homework10/issues/3)
 - [Issue #2: Nickname Mismatch](https://github.com/saiabhishek-mgv/Is601-Homework10/issues/5)
+- [Issue #3: Default Admin user](https://github.com/saiabhishek-mgv/Is601-Homework10/issues/7)
 - [Docker Image](https://hub.docker.com/repository/docker/saiabhishekmgv/homework10/general)
 
 ### 4. Collaborated effectively:
